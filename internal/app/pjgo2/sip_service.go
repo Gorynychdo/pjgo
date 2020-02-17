@@ -58,13 +58,13 @@ func (ss *SipService) init() {
 	fmt.Printf("[ SipService ] PJSUA2 STARTED ***\n")
 }
 
-func (ss *SipService) RegisterAccount(user string, password string) string {
+func (ss *SipService) RegisterAccount(config *Config) string {
 	ss.checkThread()
-	fmt.Printf("[ SipService ] Registration start, user=%v\n", user)
-	account := ss.createLocalAccount(user, password)
-	ss.activeAccounts[user] = account
+	fmt.Printf("[ SipService ] Registration start, user=%v\n", config.Login)
+	account := ss.createLocalAccount(config)
+	ss.activeAccounts[config.Login] = account
 
-	return user
+	return config.Login
 }
 
 func (ss *SipService) Unregister(accountId string) {
@@ -111,13 +111,13 @@ func (ss *SipService) makeCallWithAccount(account pjsua2.Account, remoteUser str
 	return ci.GetCallIdString()
 }
 
-func (ss *SipService) createLocalAccount(user string, password string) pjsua2.Account {
-	sipAccount := pjsua2.NewDirectorAccount(NewSipAccount(user, ss))
+func (ss *SipService) createLocalAccount(config *Config) pjsua2.Account {
+	sipAccount := pjsua2.NewDirectorAccount(NewSipAccount(config.Login, ss))
 
 	accountConfig := pjsua2.NewAccountConfig()
-	accountConfig.SetIdUri("sip:test1@pjsip.org")
-	accountConfig.GetRegConfig().SetRegistrarUri("sip:sip.pjsip.org")
-	cred := pjsua2.NewAuthCredInfo("digest", "*", "test1", 0, "test1")
+	accountConfig.SetIdUri(config.Id)
+	accountConfig.GetRegConfig().SetRegistrarUri(config.Uri)
+	cred := pjsua2.NewAuthCredInfo("digest", "*", config.Login, 0, config.Password)
 	accountConfig.GetSipConfig().GetAuthCreds().Add(cred)
 
 	sipAccount.Create(accountConfig)

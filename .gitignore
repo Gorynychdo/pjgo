@@ -20,6 +20,9 @@
 # GoLand
 .idea/
 
+# Configuration
+/configs
+
 # Executable
 /pjgo
 /pjgo2
