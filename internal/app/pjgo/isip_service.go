@@ -1,4 +1,4 @@
-package pjgo2
+package pjgo
 
 import "github.com/Gorynychdo/pjgo/internal/pjsua2"
 

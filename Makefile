@@ -12,6 +12,6 @@ pjsua-install:
 
 .PHONY: build
 build:
-	go build -x -v -i ./cmd/pjgo2
+	go build -x -v -i ./cmd/pjgo
 
 .DEFAULT_GOAL := build

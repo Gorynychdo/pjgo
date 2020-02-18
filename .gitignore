@@ -25,7 +25,6 @@
 
 # Executable
 /pjgo
-/pjgo2
 
 # Platform dependent library
 /internal/pjsua2

@@ -1,4 +1,4 @@
-package pjgo2
+package pjgo
 
 type Config struct {
 	Id       string `toml:"id"`
