@@ -5,6 +5,7 @@ type Config struct {
 	Uri      string `toml:"uri"`
 	Login    string `toml:"login"`
 	Password string `toml:"password"`
+	LogLevel uint   `toml:"log_level"`
 }
 
 func NewConfig() *Config {
@@ -13,5 +14,6 @@ func NewConfig() *Config {
 		Uri:      "sip:sip.pjsip.org",
 		Login:    "test1",
 		Password: "test1",
+		LogLevel: 4,
 	}
 }

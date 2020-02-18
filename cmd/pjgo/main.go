@@ -25,10 +25,10 @@ func main() {
 	}
 
 	sipUser := pjgo.NewSipUser()
-	sipService := pjgo.NewSipService(sipUser)
+	sipService := pjgo.NewSipService(sipUser, config)
 	sipUser.SipService = sipService
 
-	sipService.RegisterAccount(config)
+	sipService.RegisterAccount()
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)

@@ -12,6 +12,7 @@ type SipService struct {
 	activeAccounts map[string]pjsua2.Account
 	activeCalls    map[string]pjsua2.Call
 	sipUser        ISipService // application callback
+	config         *Config
 }
 
 var (
@@ -19,9 +20,11 @@ var (
 	logWriter = pjsua2.NewDirectorLogWriter(new(SipLogWriter))
 )
 
-func NewSipService(sipUser ISipService) *SipService {
-	sipService := SipService{}
-	sipService.sipUser = sipUser
+func NewSipService(sipUser ISipService, config *Config) *SipService {
+	sipService := SipService{
+		sipUser: sipUser,
+		config:  config,
+	}
 	sipService.init()
 	return &sipService
 }
@@ -36,7 +39,7 @@ func (ss *SipService) init() {
 
 	// Init library
 	epConfig := pjsua2.NewEpConfig()
-	epConfig.GetLogConfig().SetLevel(4)
+	epConfig.GetLogConfig().SetLevel(ss.config.LogLevel)
 	epConfig.GetLogConfig().SetWriter(logWriter)
 	ss.endpoint.LibInit(epConfig)
 	ss.endpoint.AudDevManager().SetNullDev()
@@ -58,13 +61,13 @@ func (ss *SipService) init() {
 	fmt.Printf("[ SipService ] PJSUA2 STARTED ***\n")
 }
 
-func (ss *SipService) RegisterAccount(config *Config) string {
+func (ss *SipService) RegisterAccount() string {
 	ss.checkThread()
-	fmt.Printf("[ SipService ] Registration start, user=%v\n", config.Login)
-	account := ss.createLocalAccount(config)
-	ss.activeAccounts[config.Login] = account
+	fmt.Printf("[ SipService ] Registration start, user=%v\n", ss.config.Login)
+	account := ss.createLocalAccount()
+	ss.activeAccounts[ss.config.Login] = account
 
-	return config.Login
+	return ss.config.Login
 }
 
 func (ss *SipService) Unregister(accountId string) {
@@ -111,13 +114,13 @@ func (ss *SipService) makeCallWithAccount(account pjsua2.Account, remoteUser str
 	return ci.GetCallIdString()
 }
 
-func (ss *SipService) createLocalAccount(config *Config) pjsua2.Account {
-	sipAccount := pjsua2.NewDirectorAccount(NewSipAccount(config.Login, ss))
+func (ss *SipService) createLocalAccount() pjsua2.Account {
+	sipAccount := pjsua2.NewDirectorAccount(NewSipAccount(ss.config.Login, ss))
 
 	accountConfig := pjsua2.NewAccountConfig()
-	accountConfig.SetIdUri(config.Id)
-	accountConfig.GetRegConfig().SetRegistrarUri(config.Uri)
-	cred := pjsua2.NewAuthCredInfo("digest", "*", config.Login, 0, config.Password)
+	accountConfig.SetIdUri(ss.config.Id)
+	accountConfig.GetRegConfig().SetRegistrarUri(ss.config.Uri)
+	cred := pjsua2.NewAuthCredInfo("digest", "*", ss.config.Login, 0, ss.config.Password)
 	accountConfig.GetSipConfig().GetAuthCreds().Add(cred)
 
 	sipAccount.Create(accountConfig)
