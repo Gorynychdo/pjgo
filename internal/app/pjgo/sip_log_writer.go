@@ -2,7 +2,7 @@ package pjgo
 
 import (
 	"fmt"
-	"github.com/Gorynychdo/pjgo/internal/pjsua2"
+	"github.com/Gorynychdo/pjgo/internal/pkg/pjsua2"
 	"strings"
 )
 
