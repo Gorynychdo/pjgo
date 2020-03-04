@@ -24,10 +24,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	sipUser := pjgo.NewSipUser()
-	sipService := pjgo.NewSipService(sipUser, config)
-	sipUser.SipService = sipService
-
+	sipService := pjgo.NewSipService(config)
 	sipService.RegisterAccount()
 
 	c := make(chan os.Signal, 1)

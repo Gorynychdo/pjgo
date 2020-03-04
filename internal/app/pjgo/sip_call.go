@@ -24,9 +24,7 @@ func (sc *SipCall) OnCallState(prm pjsua2.OnCallStateParam) {
 			ci.GetCallIdString(), ci.GetRemoteUri(),
 			ci.GetLastReason(), ci.GetLastStatusCode())
 
-		sc.sipService.removeCall(ci.GetCallIdString())
-
-		// Delete the call
+		sc.sipService.call = nil
 		pjsua2.DeleteCall(sc.call)
 	}
 }

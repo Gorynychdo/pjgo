@@ -17,28 +17,26 @@ func NewSipAccount(userId string, sipService *SipService) *SipAccount {
 
 func (sa *SipAccount) OnRegState(prm pjsua2.OnRegStateParam) {
 	sa.sipService.checkThread()
+	info := sa.sipService.account.GetInfo()
 
-	account := sa.sipService.activeAccounts[sa.userId]
-	if account == nil {
-		fmt.Printf("[ SipAccount ] OnRegState, account not found(userId=%v)\n", sa.userId)
-		return
-	}
-
-	info := account.GetInfo()
-
-	var regiState string
+	var regState string
 	if info.GetRegIsActive() {
-		regiState = "REGISTER"
+		regState = "REGISTER"
 	} else {
-		regiState = "UNREGISTER"
+		regState = "UNREGISTER"
 	}
-	fmt.Printf("[ SipAccount ] %v : code = %v\n", regiState, prm.GetCode())
+	fmt.Printf("[ SipAccount ] %v : code = %v\n", regState, prm.GetCode())
 
-	sa.sipService.onRegState(info.GetUri(), info.GetRegIsActive(), prm.GetCode())
+	fmt.Printf("[ OnRegState ] userId=%v, isActive=%v, code=%v\n",
+		info.GetUri(), info.GetRegIsActive(), prm.GetCode())
+
+	if sa.sipService.config.MakeCall && info.GetRegIsActive() {
+		sa.sipService.MakeCall(sa.sipService.config.RemoteUri)
+	}
 }
 
 func (sa *SipAccount) OnIncomingCall(prm pjsua2.OnIncomingCallParam) {
-	account := sa.sipService.getAccount(sa.userId)
+	account := sa.sipService.account
 	sipCall := NewSipCall(sa.sipService)
 	call := pjsua2.NewDirectorCall(sipCall, account, prm.GetCallId())
 	sipCall.call = call
@@ -48,21 +46,11 @@ func (sa *SipAccount) OnIncomingCall(prm pjsua2.OnIncomingCallParam) {
 		"...remoteUri = %v, localUri = %v\n",
 		prm.GetRdata().GetInfo(), callInfo.GetRemoteUri(), callInfo.GetLocalUri())
 
-	sa.sipService.addCall(callInfo.GetCallIdString(), call)
-
-	user := sa.sipService.onIncomingCall(
-		call.GetInfo().GetCallIdString(),
-		callInfo.GetRemoteUri(), callInfo.GetLocalUri())
+	sa.sipService.call = call
 
 	callOpParam := pjsua2.NewCallOpParam()
-	if user == nil {
-		fmt.Printf("[ SipAccount ] No Available User, Answering PJSIP_SC_BUSY_HERE\n")
-		callOpParam.SetStatusCode(pjsua2.PJSIP_SC_BUSY_HERE)
-		call.Answer(callOpParam)
-	} else {
-		callOpParam.SetStatusCode(pjsua2.PJSIP_SC_OK)
-		callOpParam.GetOpt().SetAudioCount(1)
-		callOpParam.GetOpt().SetVideoCount(0)
-		call.Answer(callOpParam)
-	}
+	callOpParam.SetStatusCode(pjsua2.PJSIP_SC_OK)
+	callOpParam.GetOpt().SetAudioCount(1)
+	callOpParam.GetOpt().SetVideoCount(0)
+	call.Answer(callOpParam)
 }

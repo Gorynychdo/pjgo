@@ -3,16 +3,14 @@ package pjgo
 import (
 	"fmt"
 	"github.com/Gorynychdo/pjgo/internal/pkg/pjsua2"
-	"strings"
 	"sync"
 )
 
 type SipService struct {
-	endpoint       pjsua2.Endpoint
-	activeAccounts map[string]pjsua2.Account
-	activeCalls    map[string]pjsua2.Call
-	sipUser        ISipService // application callback
-	config         *Config
+	endpoint pjsua2.Endpoint
+	account  pjsua2.Account
+	call     pjsua2.Call
+	config   *Config
 }
 
 var (
@@ -20,10 +18,9 @@ var (
 	logWriter = pjsua2.NewDirectorLogWriter(new(SipLogWriter))
 )
 
-func NewSipService(sipUser ISipService, config *Config) *SipService {
+func NewSipService(config *Config) *SipService {
 	sipService := SipService{
-		sipUser: sipUser,
-		config:  config,
+		config: config,
 	}
 	sipService.init()
 	return &sipService
@@ -31,25 +28,18 @@ func NewSipService(sipUser ISipService, config *Config) *SipService {
 
 func (ss *SipService) init() {
 	ss.endpoint = pjsua2.NewEndpoint()
-	ss.activeAccounts = make(map[string]pjsua2.Account)
-	ss.activeCalls = make(map[string]pjsua2.Call)
-
-	// Create endpoint
 	ss.endpoint.LibCreate()
 
-	// Init library
 	epConfig := pjsua2.NewEpConfig()
 	epConfig.GetLogConfig().SetLevel(ss.config.LogLevel)
 	epConfig.GetLogConfig().SetWriter(logWriter)
+
+	transportConfig := pjsua2.NewTransportConfig()
+	transportConfig.SetPort(ss.config.Port)
+
 	ss.endpoint.LibInit(epConfig)
 	ss.endpoint.AudDevManager().SetNullDev()
-
-	// Transport
-	transportConfig := pjsua2.NewTransportConfig()
-	transportConfig.SetPort(5060)
 	ss.endpoint.TransportCreate(pjsua2.PJSIP_TRANSPORT_UDP, transportConfig)
-
-	// Start library
 	ss.endpoint.LibStart()
 
 	fmt.Printf("[ SipService ] Available codecs:\n")
@@ -61,61 +51,11 @@ func (ss *SipService) init() {
 	fmt.Printf("[ SipService ] PJSUA2 STARTED ***\n")
 }
 
-func (ss *SipService) RegisterAccount() string {
+func (ss *SipService) RegisterAccount() {
 	ss.checkThread()
 	fmt.Printf("[ SipService ] Registration start, user=%v\n", ss.config.Login)
-	account := ss.createLocalAccount()
-	ss.activeAccounts[ss.config.Login] = account
 
-	return ss.config.Login
-}
-
-func (ss *SipService) Unregister(accountId string) {
-	ss.checkThread()
-
-	account := ss.activeAccounts[accountId]
-	if account == nil {
-		return
-	}
-
-	fmt.Printf("[ SipService ] Un-Registration start, user=%v\n", accountId)
-	account.SetRegistration(false)
-}
-
-func (ss *SipService) MakeCall(accountId string, remoteUser string) string {
-	ss.checkThread()
-
-	account := ss.activeAccounts[accountId]
-	if account == nil {
-		fmt.Printf("[ SipService ] makeCall error : first use create_account or register_account\n")
-		return ""
-	}
-
-	return ss.makeCallWithAccount(account, remoteUser)
-}
-
-func (ss *SipService) makeCallWithAccount(account pjsua2.Account, remoteUser string) string {
-	ss.checkThread()
-
-	remoteUri := ss.getRemoteURI(remoteUser)
-
-	// Make outgoing call
-	sipCall := NewSipCall(ss)
-	call := pjsua2.NewDirectorCall(sipCall, account)
-	sipCall.call = call
-	callOpParam := pjsua2.NewCallOpParam(true)
-	callOpParam.GetOpt().SetAudioCount(1)
-
-	call.MakeCall(remoteUri, callOpParam)
-	ci := call.GetInfo()
-	ss.activeCalls[ci.GetCallIdString()] = call
-	fmt.Printf("[ SipService ] Make Call, From = %v, To = %v, callId = %v\n",
-		account.GetInfo().GetUri(), remoteUri, ci.GetCallIdString())
-	return ci.GetCallIdString()
-}
-
-func (ss *SipService) createLocalAccount() pjsua2.Account {
-	sipAccount := pjsua2.NewDirectorAccount(NewSipAccount(ss.config.Login, ss))
+	ss.account = pjsua2.NewDirectorAccount(NewSipAccount(ss.config.Login, ss))
 
 	accountConfig := pjsua2.NewAccountConfig()
 	accountConfig.SetIdUri(ss.config.Id)
@@ -123,47 +63,26 @@ func (ss *SipService) createLocalAccount() pjsua2.Account {
 	cred := pjsua2.NewAuthCredInfo("digest", "*", ss.config.Login, 0, ss.config.Password)
 	accountConfig.GetSipConfig().GetAuthCreds().Add(cred)
 
-	sipAccount.Create(accountConfig)
+	ss.account.Create(accountConfig)
 
-	fmt.Printf("[ SipService ] Account Created, URI = %v\n", sipAccount.GetInfo().GetUri())
-
-	return sipAccount
+	fmt.Printf("[ SipService ] Account Created, URI = %v\n", ss.account.GetInfo().GetUri())
 }
 
-func (ss *SipService) getRemoteURI(remoteUser string) string {
-	// remoteURI
-	remoteUri := strings.Builder{}
+func (ss *SipService) MakeCall(remoteUri string) string {
+	ss.checkThread()
 
-	remoteUri.WriteString("sip:")
-	remoteUri.WriteString(remoteUser)
-	remoteUri.WriteString("@pjsip.org:5060;transport=udp")
+	// Make outgoing call
+	sipCall := NewSipCall(ss)
+	ss.call = pjsua2.NewDirectorCall(sipCall, ss.account)
+	sipCall.call = ss.call
+	callOpParam := pjsua2.NewCallOpParam(true)
+	callOpParam.GetOpt().SetAudioCount(1)
 
-	return remoteUri.String()
-}
-
-func (ss *SipService) getAccount(user string) pjsua2.Account {
-	return ss.activeAccounts[user]
-}
-
-func (ss *SipService) addCall(callIdString string, call pjsua2.Call) {
-	ss.activeCalls[callIdString] = call
-}
-
-func (ss *SipService) removeCall(callIdString string) {
-	call := ss.activeCalls[callIdString]
-	if call != nil {
-		fmt.Printf("[ SipService ] Remove Call, callId = %v\n", callIdString)
-		delete(ss.activeCalls, callIdString)
-		fmt.Printf("[ SipService ] Active Calls = %v\n", len(ss.activeCalls))
-	}
-}
-
-func (ss *SipService) onRegState(uri string, isActive bool, code pjsua2.Pjsip_status_code) {
-	ss.sipUser.OnRegState(uri, isActive, code)
-}
-
-func (ss *SipService) onIncomingCall(callIdString string, from string, to string) interface{} {
-	return ss.sipUser.OnIncomingCall(callIdString, from, to)
+	ss.call.MakeCall(remoteUri, callOpParam)
+	ci := ss.call.GetInfo()
+	fmt.Printf("[ SipService ] Make Call, From = %v, To = %v, callId = %v\n",
+		ss.account.GetInfo().GetUri(), remoteUri, ci.GetCallIdString())
+	return ci.GetCallIdString()
 }
 
 func (ss *SipService) checkThread() {
