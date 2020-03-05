@@ -31,4 +31,6 @@ func main() {
 	signal.Notify(c, os.Interrupt)
 
 	<-c
+
+	sipService.Shutdown()
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/Gorynychdo/pjgo/internal/pkg/pjsua2"
 	"sync"
+	"time"
 )
 
 type SipService struct {
@@ -34,12 +35,9 @@ func (ss *SipService) init() {
 	epConfig.GetLogConfig().SetLevel(ss.config.LogLevel)
 	epConfig.GetLogConfig().SetWriter(logWriter)
 
-	transportConfig := pjsua2.NewTransportConfig()
-	transportConfig.SetPort(ss.config.Port)
-
 	ss.endpoint.LibInit(epConfig)
 	ss.endpoint.AudDevManager().SetNullDev()
-	ss.endpoint.TransportCreate(pjsua2.PJSIP_TRANSPORT_UDP, transportConfig)
+	ss.endpoint.TransportCreate(pjsua2.PJSIP_TRANSPORT_TLS, pjsua2.NewTransportConfig())
 	ss.endpoint.LibStart()
 
 	fmt.Printf("[ SipService ] Available codecs:\n")
@@ -68,10 +66,9 @@ func (ss *SipService) RegisterAccount() {
 	fmt.Printf("[ SipService ] Account Created, URI = %v\n", ss.account.GetInfo().GetUri())
 }
 
-func (ss *SipService) MakeCall(remoteUri string) string {
+func (ss *SipService) MakeCall(remoteUri string) {
 	ss.checkThread()
 
-	// Make outgoing call
 	sipCall := NewSipCall(ss)
 	ss.call = pjsua2.NewDirectorCall(sipCall, ss.account)
 	sipCall.call = ss.call
@@ -82,7 +79,16 @@ func (ss *SipService) MakeCall(remoteUri string) string {
 	ci := ss.call.GetInfo()
 	fmt.Printf("[ SipService ] Make Call, From = %v, To = %v, callId = %v\n",
 		ss.account.GetInfo().GetUri(), remoteUri, ci.GetCallIdString())
-	return ci.GetCallIdString()
+}
+
+func (ss *SipService) Shutdown() {
+	ss.checkThread()
+	ss.endpoint.HangupAllCalls()
+	time.Sleep(2 * time.Second)
+
+	ss.checkThread()
+	ss.account.Shutdown()
+	ss.endpoint.LibDestroy()
 }
 
 func (ss *SipService) checkThread() {

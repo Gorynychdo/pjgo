@@ -1,7 +1,6 @@
 package pjgo
 
 type Config struct {
-	Port     uint   `toml:"port"`
 	Id       string `toml:"id"`
 	Uri      string `toml:"uri"`
 	Login    string `toml:"login"`
@@ -14,7 +13,6 @@ type Config struct {
 
 func NewConfig() *Config {
 	return &Config{
-		Port:     5060,
 		Id:       "sip:test1@pjsip.org",
 		Uri:      "sip:sip.pjsip.org",
 		Login:    "test1",
