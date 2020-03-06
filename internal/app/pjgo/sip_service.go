@@ -37,7 +37,7 @@ func (ss *SipService) init() {
 
 	ss.endpoint.LibInit(epConfig)
 	ss.endpoint.AudDevManager().SetNullDev()
-	ss.endpoint.TransportCreate(pjsua2.PJSIP_TRANSPORT_TLS, pjsua2.NewTransportConfig())
+	ss.endpoint.TransportCreate(pjsua2.PJSIP_TRANSPORT_UDP, pjsua2.NewTransportConfig())
 	ss.endpoint.LibStart()
 
 	fmt.Printf("[ SipService ] Available codecs:\n")
@@ -84,7 +84,7 @@ func (ss *SipService) MakeCall(remoteUri string) {
 func (ss *SipService) Shutdown() {
 	ss.checkThread()
 	ss.endpoint.HangupAllCalls()
-	time.Sleep(2 * time.Second)
+	time.Sleep(time.Second)
 
 	ss.checkThread()
 	ss.account.Shutdown()
