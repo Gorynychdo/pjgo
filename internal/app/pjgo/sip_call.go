@@ -8,10 +8,11 @@ import (
 type SipCall struct {
 	sipService *SipService
 	call       pjsua2.Call
+	recorder   pjsua2.AudioMediaRecorder
 }
 
 func NewSipCall(sipService *SipService) *SipCall {
-	return &SipCall{sipService, nil}
+	return &SipCall{sipService, nil, nil}
 }
 
 func (sc *SipCall) OnCallState(prm pjsua2.OnCallStateParam) {
@@ -26,5 +27,20 @@ func (sc *SipCall) OnCallState(prm pjsua2.OnCallStateParam) {
 
 		sc.sipService.call = nil
 		pjsua2.DeleteCall(sc.call)
+	}
+}
+
+func (sc *SipCall) OnCallMediaState(prm pjsua2.OnCallMediaStateParam) {
+	capMedDev := sc.sipService.endpoint.AudDevManager().GetCaptureDevMedia()
+
+	if sc.recorder == nil {
+		sc.recorder = pjsua2.NewAudioMediaRecorder()
+		sc.recorder.CreateRecorder("media/record.wav")
+		capMedDev.StartTransmit(sc.recorder)
+		fmt.Println("[ SipCall ] Recorder is active")
+	} else {
+		sc.recorder.StopTransmit(capMedDev)
+		sc.recorder = nil
+		fmt.Println("[ SipCall ] Recorder is inactive")
 	}
 }
